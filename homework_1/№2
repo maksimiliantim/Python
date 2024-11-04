@@ -1,0 +1,121 @@
+import tkinter as tk
+from tkinter import messagebox, simpledialog
+import logging
+logging.basicConfig(filename="warehouse.log", level=logging.INFO, format="%(asctime)s - %(message)s")
+
+class Product:
+    def __init__(self, name, quantity, price):
+        self.name = name
+        self.quantity = quantity
+        self.price = price
+    def increase_quantity(self, amount):
+        self.quantity += amount
+        logging.info(f"Увеличено количество товара '{self.name}' на {amount}. Текущее количество: {self.quantity}")
+    def decrease_quantity(self, amount):
+        if amount > self.quantity:
+            raise ValueError("Недостаточное количество товара для уменьшения")
+        self.quantity -= amount
+        logging.info(f"Уменьшено количество товара '{self.name}' на {amount}. Текущее количество: {self.quantity}")
+    def calculate_cost(self):
+        return self.quantity * self.price
+
+class Warehouse:
+    def __init__(self):
+        self.products = []
+    def add_product(self, product):
+        self.products.append(product)
+        logging.info(f"Добавлен товар '{product.name}' с количеством {product.quantity} и ценой {product.price}")
+    def remove_product(self, product_name):
+        product = self.find_product(product_name)
+        if product:
+            self.products.remove(product)
+            logging.info(f"Удален товар '{product_name}' с склада")
+        else:
+            raise ValueError(f"Товар '{product_name}' не найден на складе")
+    def find_product(self, product_name):
+        for product in self.products:
+            if product.name == product_name:
+                return product
+        return None
+    def calculate_total_cost(self):
+        total = sum(product.calculate_cost() for product in self.products)
+        logging.info(f"Расчет общей стоимости товаров на складе: {total}")
+        return total
+
+class Seller:
+    def __init__(self, name):
+        self.name = name
+        self.sales_report = []
+    def sell_product(self, warehouse, product_name, quantity):
+        product = warehouse.find_product(product_name)
+        if not product:
+            raise ValueError(f"Товар '{product_name}' не найден на складе")
+        if product.quantity < quantity:
+            raise ValueError("Недостаточно товара для продажи")
+        product.decrease_quantity(quantity)
+        sale_total = quantity * product.price
+        self.sales_report.append({
+            "name": product_name,
+            "quantity": quantity,
+            "total_cost": sale_total
+        })
+        logging.info(f"{self.name} продал {quantity} единиц товара '{product_name}' на сумму {sale_total}")
+        return sale_total
+    def generate_sales_report(self):
+        report = f"Отчет о продажах продавца {self.name}:\n"
+        for sale in self.sales_report:
+            report += f"{sale['name']}: {sale['quantity']} шт, стоимость {sale['total_cost']}\n"
+        return report
+
+class WarehouseApp:
+    def __init__(self, root):
+        self.warehouse = Warehouse()
+        self.seller = Seller("Максим")
+        root.title("Учет товаров на складе")
+        tk.Label(root, text="Название товара:").grid(row=0, column=0)
+        self.name_entry = tk.Entry(root)
+        self.name_entry.grid(row=0, column=1)
+        tk.Label(root, text="Количество:").grid(row=1, column=0)
+        self.quantity_entry = tk.Entry(root)
+        self.quantity_entry.grid(row=1, column=1)
+        tk.Label(root, text="Цена:").grid(row=2, column=0)
+        self.price_entry = tk.Entry(root)
+        self.price_entry.grid(row=2, column=1)
+
+        tk.Button(root, text="Добавить товар", command=self.add_product).grid(row=3, column=0, columnspan=2)
+        tk.Button(root, text="Удалить товар", command=self.remove_product).grid(row=4, column=0, columnspan=2)
+        tk.Button(root, text="Продать товар", command=self.sell_product).grid(row=5, column=0, columnspan=2)
+        tk.Button(root, text="Отчет о продажах", command=self.show_sales_report).grid(row=6, column=0, columnspan=2)
+        tk.Button(root, text="Общая стоимость товаров", command=self.show_total_cost).grid(row=7, column=0, columnspan=2)
+
+    def add_product(self):
+        name = self.name_entry.get()
+        quantity = int(self.quantity_entry.get())
+        price = float(self.price_entry.get())
+        product = Product(name, quantity, price)
+        self.warehouse.add_product(product)
+        messagebox.showinfo("Добавлено", f"Товар '{name}' добавлен на склад")
+    def remove_product(self):
+        name = simpledialog.askstring("Удалить товар", "Введите название товара:")
+        try:
+            self.warehouse.remove_product(name)
+            messagebox.showinfo("Удалено", f"Товар '{name}' удален со склада")
+        except ValueError as e:
+            messagebox.showerror("Ошибка", str(e))
+    def sell_product(self):
+        name = simpledialog.askstring("Продать товар", "Введите название товара:")
+        quantity = int(simpledialog.askstring("Количество", "Введите количество для продажи:"))
+        try:
+            revenue = self.seller.sell_product(self.warehouse, name, quantity)
+            messagebox.showinfo("Продано", f"Товар '{name}' продан на сумму {revenue}")
+        except ValueError as e:
+            messagebox.showerror("Ошибка", str(e))
+    def show_sales_report(self):
+        report = self.seller.generate_sales_report()
+        messagebox.showinfo("Отчет о продажах", report)
+    def show_total_cost(self):
+        total = self.warehouse.calculate_total_cost()
+        messagebox.showinfo("Общая стоимость", f"Общая стоимость товаров на складе: {total}")
+root = tk.Tk()
+app = WarehouseApp(root)
+root.mainloop()
